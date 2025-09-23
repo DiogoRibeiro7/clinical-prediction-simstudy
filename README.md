@@ -151,11 +151,11 @@ If you use this code or results, please cite both the **original paper** and thi
 
 **This replication:**
 
-> \[Your Name]. (2025). *Replication of Lohmann et al. (2023): Penalization vs. Variance Decomposition in Clinical Prediction Models*.
+> \[Diogo Ribeiro]. (2025). *Replication of Lohmann et al. (2023): Penalization vs. Variance Decomposition in Clinical Prediction Models*.
 > GitHub repository: \[link to your repo]
 
 ---
 
 ## ⚖️ License
 
-MIT License (feel free to modify for your purposes).
+MIT License.
