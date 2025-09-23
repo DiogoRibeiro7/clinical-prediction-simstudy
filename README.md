@@ -5,7 +5,7 @@ This repository provides an **R implementation** of the simulation framework fro
 > Lohmann, L., Groenwold, R.H.H., & van Smeden, M. (2023).
 > *Comparison of likelihood penalization and variance decomposition approaches for clinical prediction models: A simulation study*.
 > **Biometrical Journal**, 65(5), e700193.
-> [https://doi.org/10.1002/bimj.202200193](https://doi.org/10.1002/bimj.202200193)
+> [https://doi.org/10.1002/bimj.202200108](https://doi.org/10.1002/bimj.202200108)
 
 The goal is to replicate and extend the comparison between **likelihood penalization methods** (ridge, LASSO, elastic net, relaxed LASSO) and **variance decomposition methods** (principal component regression, partial least squares) for binary logistic prediction models, under varying sample sizes and data characteristics.
 
@@ -147,7 +147,7 @@ If you use this code or results, please cite both the **original paper** and thi
 > Lohmann, L., Groenwold, R.H.H., & van Smeden, M. (2023).
 > *Comparison of likelihood penalization and variance decomposition approaches for clinical prediction models: A simulation study*.
 > **Biometrical Journal**, 65(5), e700193.
-> [https://doi.org/10.1002/bimj.202200193](https://doi.org/10.1002/bimj.202200193)
+> [https://doi.org/10.1002/bimj.202200108](https://doi.org/10.1002/bimj.202200108)
 
 **This replication:**
 
@@ -157,5 +157,8 @@ If you use this code or results, please cite both the **original paper** and thi
 ---
 
 ## ⚖️ License
+
+MIT License.
+
 
 MIT License.
