@@ -1,0 +1,185 @@
+name: 🐛 Bug Report
+description: Report a bug or unexpected behavior in the Lohmann et al. (2023) replication
+title: "[BUG] "
+labels: ["bug", "needs-triage"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug! Please fill out the information below to help us diagnose and fix the issue.
+        
+        **Before submitting:** Please check if a similar issue already exists in the [issue tracker](../../issues).
+
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: Prerequisites
+      description: Please confirm you have completed these steps
+      options:
+        - label: I have searched existing issues to avoid duplicates
+          required: true
+        - label: I have read the README.md and followed the installation instructions
+          required: true
+        - label: I can reproduce this issue consistently
+          required: true
+
+  - type: textarea
+    id: bug_description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the bug is
+      placeholder: Describe the bug in detail...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected_behavior
+    attributes:
+      label: Expected Behavior
+      description: What you expected to happen
+      placeholder: Describe what should have happened...
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual_behavior
+    attributes:
+      label: Actual Behavior
+      description: What actually happened
+      placeholder: Describe what actually happened...
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction_steps
+    attributes:
+      label: Steps to Reproduce
+      description: Detailed steps to reproduce the behavior
+      placeholder: |
+        1. Run command: 'Rscript run_chunk.R --chunk_id 1 --iters 2'
+        2. Wait for completion
+        3. Check output file
+        4. See error...
+      value: |
+        1. 
+        2. 
+        3. 
+        4. 
+    validations:
+      required: true
+
+  - type: textarea
+    id: error_message
+    attributes:
+      label: Error Message/Output
+      description: Copy and paste any error messages or unexpected output
+      render: shell
+      placeholder: Paste error messages here...
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component Affected
+      description: Which part of the simulation is affected?
+      options:
+        - Data generation (gen_dataset function)
+        - Model fitting (MLE, Ridge, LASSO, etc.)
+        - Performance evaluation (metrics calculation)
+        - Parallel processing (chunks, workers)
+        - Result aggregation (combine results)
+        - Visualization (plots generation)
+        - File I/O (reading/writing results)
+        - Other (please specify in description)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      description: How severe is this bug?
+      options:
+        - Low (minor issue, workaround available)
+        - Medium (affects functionality, no workaround)
+        - High (prevents simulation from running)
+        - Critical (data corruption or incorrect results)
+    validations:
+      required: true
+
+  - type: input
+    id: r_version
+    attributes:
+      label: R Version
+      description: What version of R are you using?
+      placeholder: "e.g., R version 4.3.2"
+    validations:
+      required: true
+
+  - type: textarea
+    id: package_versions
+    attributes:
+      label: Package Versions
+      description: Please run `sessionInfo()` and paste the output
+      render: R
+      placeholder: Paste sessionInfo() output here...
+
+  - type: dropdown
+    id: operating_system
+    attributes:
+      label: Operating System
+      description: What operating system are you using?
+      options:
+        - Windows 10
+        - Windows 11
+        - macOS (Intel)
+        - macOS (Apple Silicon)
+        - Linux (Ubuntu)
+        - Linux (CentOS/RHEL)
+        - Linux (other distribution)
+        - Other (please specify)
+    validations:
+      required: true
+
+  - type: textarea
+    id: system_specs
+    attributes:
+      label: System Specifications
+      description: Hardware specifications (especially for performance issues)
+      placeholder: |
+        CPU: 
+        RAM: 
+        Available disk space:
+        Number of cores used:
+
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Additional Context
+      description: Any other information that might be relevant
+      placeholder: |
+        - Running in Docker container?
+        - Using job scheduler (SLURM, PBS)?
+        - Network storage vs local disk?
+        - Any custom modifications to the code?
+
+  - type: textarea
+    id: minimal_example
+    attributes:
+      label: Minimal Reproducible Example
+      description: If possible, provide a minimal example that reproduces the issue
+      render: R
+      placeholder: |
+        # Minimal R code that reproduces the issue
+        source("replicate_framework.R")
+        # ... your example code here ...
+
+  - type: checkboxes
+    id: willingness
+    attributes:
+      label: Contribution
+      description: Would you be willing to help fix this issue?
+      options:
+        - label: I would be willing to submit a pull request to fix this bug
+        - label: I can help test proposed solutions
+        - label: I can provide additional information if needed
