@@ -1,0 +1,250 @@
+name: 🚀 Feature Request
+description: Suggest a new feature or enhancement for the Lohmann et al. (2023) replication
+title: "[FEATURE] "
+labels: ["enhancement", "needs-review"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting a new feature! This template will help us understand your request and evaluate its implementation.
+        
+        **Before submitting:** Please check if a similar feature request already exists in the [issue tracker](../../issues).
+
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: Prerequisites
+      description: Please confirm you have completed these steps
+      options:
+        - label: I have searched existing issues to avoid duplicates
+          required: true
+        - label: I have read the README.md and understand the current functionality
+          required: true
+        - label: This feature aligns with the project's scope and goals
+          required: true
+
+  - type: dropdown
+    id: feature_category
+    attributes:
+      label: Feature Category
+      description: What type of enhancement is this?
+      options:
+        - New statistical method implementation
+        - Performance/computational improvement
+        - Visualization enhancement
+        - Data export/import functionality
+        - Documentation improvement
+        - Code quality/maintainability
+        - User interface improvement
+        - Validation/testing enhancement
+        - Other (please specify in description)
+    validations:
+      required: true
+
+  - type: textarea
+    id: feature_summary
+    attributes:
+      label: Feature Summary
+      description: A brief, clear description of the feature you'd like to see
+      placeholder: Summarize the feature in 1-2 sentences...
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem_statement
+    attributes:
+      label: Problem Statement
+      description: What problem does this feature solve? What's the current limitation?
+      placeholder: |
+        Describe the problem or limitation that motivated this request:
+        - What are you trying to achieve?
+        - What obstacles are you encountering?
+        - How does this impact your work?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed_solution
+    attributes:
+      label: Proposed Solution
+      description: Detailed description of the feature you'd like to see implemented
+      placeholder: |
+        Describe your proposed solution in detail:
+        - How should it work?
+        - What should the user interface look like?
+        - What are the key components?
+        - Any specific implementation ideas?
+    validations:
+      required: true
+
+  - type: textarea
+    id: use_cases
+    attributes:
+      label: Use Cases
+      description: Describe specific scenarios where this feature would be useful
+      placeholder: |
+        Example use cases:
+        1. As a researcher, I want to... so that...
+        2. When analyzing results, I need to... because...
+        3. For publication purposes, it would be helpful to...
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternative Solutions
+      description: Have you considered any alternative approaches or workarounds?
+      placeholder: |
+        Describe any alternatives you've considered:
+        - Current workarounds you're using
+        - Other tools or methods that solve similar problems
+        - Why those alternatives are insufficient
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority Level
+      description: How important is this feature to you?
+      options:
+        - Low (nice to have, not urgent)
+        - Medium (would improve workflow significantly)
+        - High (addresses major limitation or pain point)
+        - Critical (blocking important research or analysis)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: complexity
+    attributes:
+      label: Implementation Complexity (your estimate)
+      description: How complex do you think this feature would be to implement?
+      options:
+        - Simple (minor code changes, few hours of work)
+        - Moderate (some new code, few days of work)
+        - Complex (significant changes, weeks of work)
+        - Major (substantial redesign, months of work)
+        - Unknown (I'm not sure about the complexity)
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: feature_scope
+    attributes:
+      label: Feature Scope
+      description: Select all that apply to this feature request
+      options:
+        - label: New statistical method or algorithm
+        - label: Performance optimization
+        - label: New visualization or plot type
+        - label: Enhanced data handling capabilities
+        - label: Improved error handling or diagnostics
+        - label: Better documentation or examples
+        - label: Extended configuration options
+        - label: Integration with external tools/packages
+        - label: Automated testing or validation
+
+  - type: textarea
+    id: mockup_example
+    attributes:
+      label: Mockup/Example
+      description: If applicable, provide a mockup, pseudocode, or example of how this feature might work
+      render: R
+      placeholder: |
+        # Example of how the feature might be used:
+        
+        # New function call:
+        result <- new_feature(data, method = "proposed_method")
+        
+        # Expected output:
+        # ...
+
+  - type: textarea
+    id: related_literature
+    attributes:
+      label: Related Literature/Methods
+      description: Are there academic papers, R packages, or other implementations related to this feature?
+      placeholder: |
+        References that support this feature request:
+        - Paper citations
+        - Related R packages
+        - Similar implementations in other software
+
+  - type: textarea
+    id: impact_assessment
+    attributes:
+      label: Impact Assessment
+      description: How would this feature affect the project and its users?
+      placeholder: |
+        Consider the impact on:
+        - Existing functionality (backward compatibility)
+        - Performance (computational cost, memory usage)
+        - Maintenance burden
+        - Learning curve for new users
+        - Scientific validity and reproducibility
+
+  - type: checkboxes
+    id: compatibility
+    attributes:
+      label: Compatibility Considerations
+      description: Please check all that apply
+      options:
+        - label: This feature should maintain backward compatibility
+        - label: This feature may require breaking changes (justify in description)
+        - label: This feature should work with existing visualization system
+        - label: This feature should integrate with current parallel processing
+        - label: This feature should follow existing code style and patterns
+
+  - type: dropdown
+    id: target_audience
+    attributes:
+      label: Target Audience
+      description: Who would primarily benefit from this feature?
+      options:
+        - Biostatisticians and clinical researchers
+        - Method developers and statisticians
+        - Graduate students and trainees
+        - Software developers and maintainers
+        - All users of the simulation framework
+        - Specific research domain (please specify)
+    validations:
+      required: true
+
+  - type: textarea
+    id: success_criteria
+    attributes:
+      label: Success Criteria
+      description: How would we know this feature is successfully implemented?
+      placeholder: |
+        The feature would be considered successful if:
+        - [ ] Functional requirement 1
+        - [ ] Functional requirement 2
+        - [ ] Performance requirement (if applicable)
+        - [ ] Documentation requirement
+        - [ ] Testing requirement
+
+  - type: checkboxes
+    id: contribution_willingness
+    attributes:
+      label: Contribution
+      description: Would you be willing to help implement this feature?
+      options:
+        - label: I would be willing to submit a pull request for this feature
+        - label: I can help with design and specification
+        - label: I can help with testing and validation
+        - label: I can contribute documentation or examples
+        - label: I can provide domain expertise or methodological guidance
+
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Additional Context
+      description: Any other information that would be helpful for understanding this request
+      placeholder: |
+        Additional information:
+        - Links to relevant resources
+        - Screenshots or diagrams
+        - Timeline considerations
+        - Budget or resource constraints
+        - Integration requirements
