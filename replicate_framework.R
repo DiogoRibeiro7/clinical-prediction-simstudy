@@ -1,6 +1,7 @@
 # =======================================================================
 # replicate_framework.R
 # Core logic for the Lohmann et al. (2023) simulation replication
+# FIXED VERSION - addresses data standardization and robustness issues
 # =======================================================================
 
 suppressPackageStartupMessages({
@@ -34,15 +35,31 @@ make_sigma <- function(p, beta_a = 1, beta_b = 3) {
     }
   }
   eig <- eigen(Sigma, symmetric = TRUE)
-  eig$values[eig$values < 1e-6] <- 1e-6
+  # More robust eigenvalue fixing
+  min_eig <- max(1e-8, min(eig$values) * 0.001)
+  eig$values[eig$values < min_eig] <- min_eig
   S <- eig$vectors %*% diag(eig$values, p) %*% t(eig$vectors)
   D <- diag(1 / sqrt(diag(S)), p)
   as.matrix(D %*% S %*% D)
 }
 
-solve_intercept <- function(beta, X, target_pi, tol = 1e-10) {
+solve_intercept <- function(beta, X, target_pi, tol = 1e-10, max_iter = 100) {
+  # More robust intercept solving with better bounds and iteration limit
   f <- function(b0) mean(plogis(b0 + as.numeric(X %*% beta))) - target_pi
-  uniroot(f, c(-50, 50), tol = tol)$root
+  
+  # Try wider bounds first
+  tryCatch({
+    uniroot(f, c(-20, 20), tol = tol, maxiter = max_iter)$root
+  }, error = function(e1) {
+    # If that fails, try even wider bounds
+    tryCatch({
+      uniroot(f, c(-50, 50), tol = tol * 10, maxiter = max_iter)$root
+    }, error = function(e2) {
+      # If still fails, use a simple approximation
+      warning("Intercept solving failed, using approximation")
+      qlogis(target_pi)
+    })
+  })
 }
 
 draw_true_beta <- function(p, noise_frac = 0) {
@@ -65,17 +82,19 @@ gen_dataset <- function(p, event_frac, EPV, noise_frac, sparse, seed,
   Xtr <- mvrnorm(n_train, rep(0, p), Sigma)
   Xva <- mvrnorm(n_val,   rep(0, p), Sigma)
 
-  # Optional sparse predictors: make 1/4 binary (supervised choice in paper’s spirit)
-  if (isTRUE(sparse)) {
-    idx <- sample(seq_len(p), floor(p/4))
-    Xtr[, idx] <- (Xtr[, idx] > 0) * 1
-    Xva[, idx] <- (Xva[, idx] > 0) * 1
-  }
-
-  # Standardize (like paper’s centering assumption)
+  # FIXED: Standardize FIRST, then apply sparse transformation
   Xtr_s <- scale(Xtr, center = TRUE, scale = TRUE)
-  Xva_s <- scale(Xva, center = attr(Xtr_s, "scaled:center"),
-                      scale  = attr(Xtr_s, "scaled:scale"))
+  scale_center <- attr(Xtr_s, "scaled:center")
+  scale_scale <- attr(Xtr_s, "scaled:scale")
+  Xva_s <- scale(Xva, center = scale_center, scale = scale_scale)
+
+  # Now apply sparse predictors to standardized data
+  if (isTRUE(sparse)) {
+    idx <- sample(seq_len(p), max(1L, floor(p/4)))  # Ensure at least 1 sparse predictor
+    # Convert to binary based on standardized values
+    Xtr_s[, idx] <- (Xtr_s[, idx] > 0) * 1
+    Xva_s[, idx] <- (Xva_s[, idx] > 0) * 1
+  }
 
   beta_true <- draw_true_beta(p, noise_frac)
   b0_true   <- solve_intercept(beta_true, Xtr_s, target_pi = event_frac)
@@ -88,20 +107,52 @@ gen_dataset <- function(p, event_frac, EPV, noise_frac, sparse, seed,
 
   list(
     Xtr = Xtr_s, ytr = y_tr, piv = pi_va, Xva = Xva_s, yva = y_va,
-    beta_true = beta_true, b0_true = b0_true
+    beta_true = beta_true, b0_true = b0_true,
+    scale_center = scale_center, scale_scale = scale_scale  # For debugging
   )
 }
 
 # ---------- Metrics ----------------------------------------------------------
 compute_metrics <- function(phat, y, pi_true) {
-  auc <- tryCatch(as.numeric(pROC::auc(y, phat)), error = function(e) NA_real_)
-  # Recalibration: logit(p) = a + b*logit(phat)
+  # More robust AUC computation
+  auc <- tryCatch({
+    if (length(unique(y)) < 2 || length(unique(phat)) < 2) {
+      NA_real_
+    } else {
+      as.numeric(pROC::auc(y, phat, quiet = TRUE))
+    }
+  }, error = function(e) NA_real_)
+  
+  # More robust calibration slope computation
   lph <- logit(phat)
-  cal_fit <- tryCatch(glm(y ~ lph, family = binomial()), error = function(e) NULL)
-  b <- if (is.null(cal_fit)) NA_real_ else unname(coef(cal_fit)[2])
-  b <- if (is.na(b)) NA_real_ else winsorize_cal_slope(b)
-  cil_fit <- tryCatch(glm(y ~ 1, family = binomial(), offset = lph), error = function(e) NULL)
-  cil <- if (is.null(cil_fit)) NA_real_ else unname(coef(cil_fit)[1])
+  cal_fit <- tryCatch({
+    if (any(is.infinite(lph)) || any(is.na(lph)) || length(unique(y)) < 2) {
+      NULL
+    } else {
+      glm(y ~ lph, family = binomial())
+    }
+  }, error = function(e) NULL)
+  
+  b <- if (is.null(cal_fit) || any(is.na(coef(cal_fit)))) {
+    NA_real_
+  } else {
+    winsorize_cal_slope(unname(coef(cal_fit)[2]))
+  }
+  
+  # Calibration-in-the-large
+  cil_fit <- tryCatch({
+    if (any(is.infinite(lph)) || any(is.na(lph)) || length(unique(y)) < 2) {
+      NULL
+    } else {
+      glm(y ~ 1, family = binomial(), offset = lph)
+    }
+  }, error = function(e) NULL)
+  
+  cil <- if (is.null(cil_fit) || any(is.na(coef(cil_fit)))) {
+    NA_real_
+  } else {
+    unname(coef(cil_fit)[1])
+  }
 
   brier <- mean((y - phat)^2)
   rMSPE <- sqrt(mean((pi_true - phat)^2))
@@ -113,166 +164,305 @@ compute_metrics <- function(phat, y, pi_true) {
 
 # ---------- Shared CV folds ---------------------------------------------------
 make_folds <- function(n, K = 10, seed = 1) {
-  set.seed(seed); sample(rep(1:K, length.out = n))
+  # More robust fold creation
+  set.seed(seed)
+  if (n < K) {
+    # If fewer observations than folds, each obs gets its own fold
+    seq_len(n)
+  } else {
+    sample(rep(1:K, length.out = n))
+  }
 }
 
 # ---------- Models ------------------------------------------------------------
 fit_mle <- function(X, y) {
-  df <- as.data.frame(X); colnames(df) <- paste0("x", seq_len(ncol(df))); df$y <- y
-  glm(y ~ ., data = df, family = binomial())
+  # More robust MLE fitting
+  tryCatch({
+    df <- as.data.frame(X)
+    colnames(df) <- paste0("x", seq_len(ncol(df)))
+    df$y <- y
+    
+    # Check for perfect separation
+    if (length(unique(y)) < 2) {
+      stop("No variation in outcome")
+    }
+    
+    fit <- glm(y ~ ., data = df, family = binomial())
+    
+    # Check for convergence issues
+    if (!fit$converged) {
+      warning("MLE did not converge")
+    }
+    
+    fit
+  }, error = function(e) {
+    warning(paste("MLE failed:", e$message))
+    NULL
+  })
 }
+
 predict_mle <- function(fit, X) {
-  df <- as.data.frame(X); colnames(df) <- names(coef(fit))[-1]
-  as.numeric(predict(fit, df, type = "response"))
+  if (is.null(fit)) {
+    return(rep(0.5, nrow(X)))
+  }
+  
+  tryCatch({
+    df <- as.data.frame(X)
+    colnames(df) <- names(coef(fit))[-1]
+    as.numeric(predict(fit, df, type = "response"))
+  }, error = function(e) {
+    warning(paste("MLE prediction failed:", e$message))
+    rep(0.5, nrow(X))
+  })
 }
 
 fit_glmnet_cv <- function(X, y, alpha, foldid, relax = FALSE) {
-  cv.glmnet(
-    x = X, y = y, family = "binomial", alpha = alpha, relax = relax,
-    foldid = foldid, nlambda = 100, type.measure = "deviance"
-  )
+  tryCatch({
+    # Check for sufficient variation
+    if (length(unique(y)) < 2) {
+      stop("No variation in outcome")
+    }
+    
+    cv.glmnet(
+      x = X, y = y, family = "binomial", alpha = alpha, relax = relax,
+      foldid = foldid, nlambda = 100, type.measure = "deviance",
+      standardize = FALSE  # We already standardized
+    )
+  }, error = function(e) {
+    warning(paste("glmnet failed:", e$message))
+    NULL
+  })
 }
+
 predict_glmnet_resp <- function(cvfit, X) {
-  as.numeric(predict(cvfit, newx = X, type = "response", s = "lambda.min"))
+  if (is.null(cvfit)) {
+    return(rep(0.5, nrow(X)))
+  }
+  
+  tryCatch({
+    as.numeric(predict(cvfit, newx = X, type = "response", s = "lambda.min"))
+  }, error = function(e) {
+    warning(paste("glmnet prediction failed:", e$message))
+    rep(0.5, nrow(X))
+  })
 }
 
 # ----- PCR component selection rules -----------------------------------------
 select_pcr_components <- function(X, y, rule = c("evgt1","var90","aic","cvdev"), foldid = NULL) {
   rule <- match.arg(rule)
-  pr <- prcomp(X, center = FALSE, scale. = FALSE)
-  eig <- pr$sdev^2
-  varexpl <- cumsum(eig) / sum(eig)
-  k_candidates <- seq_len(ncol(X))
+  
+  tryCatch({
+    pr <- prcomp(X, center = FALSE, scale. = FALSE)  # Already standardized
+    eig <- pr$sdev^2
+    varexpl <- cumsum(eig) / sum(eig)
+    k_candidates <- seq_len(min(ncol(X), nrow(X) - 2))  # Ensure df for GLM
 
-  k <- switch(
-    rule,
-    evgt1 = sum(eig > 1),
-    var90 = which(varexpl >= 0.90)[1],
-    aic   = {
-      aics <- sapply(k_candidates, function(k) {
-        Z <- pr$x[, seq_len(k), drop = FALSE]
-        fit <- glm(y ~ ., family = binomial(), data = data.frame(y, Z))
-        AIC(fit)
-      })
-      k_candidates[which.min(aics)]
-    },
-    cvdev = {
-      if (is.null(foldid)) stop("foldid required for cvdev")
-      devs <- sapply(k_candidates, function(k) {
-        Z <- pr$x[, seq_len(k), drop = FALSE]
-        cv <- cv.glmnet(Z, y, family = "binomial", alpha = 0, # ridge on PCs
-                        foldid = foldid, type.measure = "deviance")
-        min(cv$cvm)
-      })
-      k_candidates[which.min(devs)]
-    }
-  )
-  k <- max(1L, min(k, ncol(X)))
-  list(pr = pr, k = k)
+    k <- switch(
+      rule,
+      evgt1 = max(1L, sum(eig > 1)),
+      var90 = max(1L, which(varexpl >= 0.90)[1]),
+      aic   = {
+        if (length(unique(y)) < 2) {
+          1L
+        } else {
+          aics <- sapply(k_candidates, function(k) {
+            tryCatch({
+              Z <- pr$x[, seq_len(k), drop = FALSE]
+              fit <- glm(y ~ ., family = binomial(), data = data.frame(y, Z))
+              if (fit$converged) AIC(fit) else Inf
+            }, error = function(e) Inf)
+          })
+          k_candidates[which.min(aics)]
+        }
+      },
+      cvdev = {
+        if (is.null(foldid) || length(unique(y)) < 2) {
+          1L
+        } else {
+          devs <- sapply(k_candidates, function(k) {
+            tryCatch({
+              Z <- pr$x[, seq_len(k), drop = FALSE]
+              cv <- cv.glmnet(Z, y, family = "binomial", alpha = 0,
+                              foldid = foldid, type.measure = "deviance",
+                              standardize = FALSE)
+              min(cv$cvm)
+            }, error = function(e) Inf)
+          })
+          k_candidates[which.min(devs)]
+        }
+      }
+    )
+    k <- max(1L, min(k, ncol(X), nrow(X) - 2))
+    list(pr = pr, k = k)
+  }, error = function(e) {
+    warning(paste("PCR component selection failed:", e$message))
+    # Return minimal viable result
+    list(pr = list(x = X, center = rep(0, ncol(X)), scale = rep(1, ncol(X))), k = 1L)
+  })
 }
 
 fit_pcr_mle <- function(X, y, rule, foldid = NULL) {
   sel <- select_pcr_components(X, y, rule, foldid)
-  list(
-    fit = glm(y ~ ., family = binomial(), data = data.frame(y, sel$pr$x[, seq_len(sel$k), drop = FALSE])),
-    pr  = sel$pr,
-    k   = sel$k
-  )
+  
+  tryCatch({
+    Z <- sel$pr$x[, seq_len(sel$k), drop = FALSE]
+    fit <- glm(y ~ ., family = binomial(), data = data.frame(y, Z))
+    list(fit = fit, pr = sel$pr, k = sel$k)
+  }, error = function(e) {
+    warning(paste("PCR MLE failed:", e$message))
+    list(fit = NULL, pr = sel$pr, k = sel$k)
+  })
 }
+
 predict_pcr_mle <- function(obj, Xnew) {
-  Z <- scale(Xnew, center = obj$pr$center, scale = obj$pr$scale) %*% obj$pr$rotation
-  Z <- Z[, seq_len(obj$k), drop = FALSE]
-  as.numeric(predict(obj$fit, newdata = data.frame(Z), type = "response"))
+  if (is.null(obj$fit)) {
+    return(rep(0.5, nrow(Xnew)))
+  }
+  
+  tryCatch({
+    # For our case, Xnew is already standardized, so we just need the rotation
+    if (is.list(obj$pr) && is.matrix(obj$pr$x)) {
+      # Fallback case - use original data structure
+      Z <- Xnew[, seq_len(obj$k), drop = FALSE]
+    } else {
+      # Normal case - apply PCA rotation
+      Z <- Xnew %*% obj$pr$rotation
+      Z <- Z[, seq_len(obj$k), drop = FALSE]
+    }
+    as.numeric(predict(obj$fit, newdata = data.frame(Z), type = "response"))
+  }, error = function(e) {
+    warning(paste("PCR prediction failed:", e$message))
+    rep(0.5, nrow(Xnew))
+  })
 }
 
 # ----- PLS (with stopping) ----------------------------------------------------
 fit_pls <- function(X, y, maxcomp = 30, sparseStop = TRUE) {
-  df <- data.frame(y = y, X)
-  plsRglm::plsRglm(
-    y ~ ., data = df, nt = min(maxcomp, ncol(X)),
-    modele = "pls-glm-family", family = binomial(), sparse = sparseStop
-  )
+  tryCatch({
+    if (length(unique(y)) < 2) {
+      stop("No variation in outcome")
+    }
+    
+    df <- data.frame(y = y, X)
+    plsRglm::plsRglm(
+      y ~ ., data = df, nt = min(maxcomp, ncol(X), nrow(X) - 2),
+      modele = "pls-glm-family", family = binomial(), sparse = sparseStop
+    )
+  }, error = function(e) {
+    warning(paste("PLS failed:", e$message))
+    NULL
+  })
 }
+
 predict_pls_resp <- function(fit, Xnew) {
-  as.numeric(plsRglm::predict.plsRglm(fit, newdata = data.frame(Xnew), type = "response"))
+  if (is.null(fit)) {
+    return(rep(0.5, nrow(Xnew)))
+  }
+  
+  tryCatch({
+    as.numeric(plsRglm::predict.plsRglm(fit, newdata = data.frame(Xnew), type = "response"))
+  }, error = function(e) {
+    warning(paste("PLS prediction failed:", e$message))
+    rep(0.5, nrow(Xnew))
+  })
 }
 
 # ----- One iteration (all methods) with substitution rules --------------------
 eval_methods_once <- function(Xtr, ytr, Xva, yva, piv, seed_fold) {
-  foldid <- make_folds(nrow(Xtr), K = 10, seed = seed_fold)
+  # Use a more separated seed for fold generation
+  foldid <- make_folds(nrow(Xtr), K = 10, seed = seed_fold * 17 + 42)
   out <- list()
+  
+  # Check for degenerate cases
+  if (length(unique(ytr)) < 2) {
+    warning("No variation in training outcome - returning NA results")
+    dummy_metrics <- tibble(auc = NA_real_, cal_slope = NA_real_, 
+                           cal_in_large = NA_real_, brier = NA_real_,
+                           rMSPE = NA_real_, MAPE = NA_real_)
+    method_names <- c("MLE", "Ridge", "LASSO", "ElasticNet", "RelaxedLASSO",
+                     "PCR_evgt1", "PCR_var90", "PCR_aic", "PCR_cvdev", 
+                     "PLS", "PLS_LASSO")
+    for (method in method_names) {
+      out[[method]] <- dummy_metrics
+    }
+    return(bind_rows(out, .id = "method"))
+  }
 
   # MLE
-  fit_m <- tryCatch(fit_mle(Xtr, ytr), error = function(e) NULL)
+  fit_m <- fit_mle(Xtr, ytr)
   ph_m  <- if (is.null(fit_m)) rep(mean(ytr), nrow(Xva)) else predict_mle(fit_m, Xva)
   out$MLE <- compute_metrics(ph_m, yva, piv)
 
   # Ridge
-  cv_r <- tryCatch(fit_glmnet_cv(Xtr, ytr, alpha = 0, foldid = foldid), error = function(e) NULL)
+  cv_r <- fit_glmnet_cv(Xtr, ytr, alpha = 0, foldid = foldid)
   ph_r <- if (is.null(cv_r)) ph_m else predict_glmnet_resp(cv_r, Xva)
   out$Ridge <- compute_metrics(ph_r, yva, piv)
 
   # LASSO
-  cv_l <- tryCatch(fit_glmnet_cv(Xtr, ytr, alpha = 1, foldid = foldid), error = function(e) NULL)
+  cv_l <- fit_glmnet_cv(Xtr, ytr, alpha = 1, foldid = foldid)
   ph_l <- if (is.null(cv_l)) ph_m else predict_glmnet_resp(cv_l, Xva)
-  # If LASSO selected no predictors, glmnet still returns intercept-only; this is fine.
   out$LASSO <- compute_metrics(ph_l, yva, piv)
 
   # Elastic Net: scan α grid, pick min CV deviance
   alphas <- c(0, 0.125, 0.25, 0.5, 0.75, 1)
-  cv_list <- lapply(alphas, function(a) tryCatch(
-    fit_glmnet_cv(Xtr, ytr, alpha = a, foldid = foldid),
-    error = function(e) NULL))
+  cv_list <- lapply(alphas, function(a) fit_glmnet_cv(Xtr, ytr, alpha = a, foldid = foldid))
+  
   if (all(sapply(cv_list, is.null))) {
     out$ElasticNet <- out$MLE
   } else {
-    devs <- sapply(cv_list, function(cv) if (is.null(cv)) Inf else min(cv$cvm))
-    best <- which.min(devs)
-    ph_en <- predict_glmnet_resp(cv_list[[best]], Xva)
-    out$ElasticNet <- compute_metrics(ph_en, yva, piv)
+    devs <- sapply(cv_list, function(cv) if (is.null(cv)) Inf else min(cv$cvm, na.rm = TRUE))
+    if (all(is.infinite(devs))) {
+      out$ElasticNet <- out$MLE
+    } else {
+      best <- which.min(devs)
+      ph_en <- predict_glmnet_resp(cv_list[[best]], Xva)
+      out$ElasticNet <- compute_metrics(ph_en, yva, piv)
+    }
   }
 
   # Relaxed LASSO
-  cv_rl <- tryCatch(fit_glmnet_cv(Xtr, ytr, alpha = 1, foldid = foldid, relax = TRUE), error = function(e) NULL)
+  cv_rl <- fit_glmnet_cv(Xtr, ytr, alpha = 1, foldid = foldid, relax = TRUE)
   ph_rl <- if (is.null(cv_rl)) ph_m else predict_glmnet_resp(cv_rl, Xva)
   out$RelaxedLASSO <- compute_metrics(ph_rl, yva, piv)
 
   # PCR rules
   for (rule in c("evgt1","var90","aic","cvdev")) {
-    fitp <- tryCatch(fit_pcr_mle(Xtr, ytr, rule, foldid), error = function(e) NULL)
-    if (is.null(fitp) || fitp$k < 2) {           # substitution: fallback to MLE if < 2 comps
+    fitp <- fit_pcr_mle(Xtr, ytr, rule, foldid)
+    if (is.null(fitp$fit) || fitp$k < 2) {
       out[[paste0("PCR_", rule)]] <- out$MLE
     } else {
-      php <- tryCatch(predict_pcr_mle(fitp, Xva), error = function(e) rep(mean(ytr), nrow(Xva)))
+      php <- predict_pcr_mle(fitp, Xva)
       out[[paste0("PCR_", rule)]] <- compute_metrics(php, yva, piv)
     }
   }
 
   # PLS (stopping), cap 30 comps
-  fit_pl <- tryCatch(fit_pls(Xtr, ytr, maxcomp = 30, sparseStop = TRUE), error = function(e) NULL)
+  fit_pl <- fit_pls(Xtr, ytr, maxcomp = 30, sparseStop = TRUE)
   if (is.null(fit_pl)) {
     out$PLS <- out$MLE
   } else {
-    php <- tryCatch(predict_pls_resp(fit_pl, Xva), error = function(e) rep(mean(ytr), nrow(Xva)))
+    php <- predict_pls_resp(fit_pl, Xva)
     out$PLS <- compute_metrics(php, yva, piv)
   }
 
-  # PLS + LASSO hybrid:
-  # To keep projection stable (plsRglm hides scores), we approximate with PCR_cvdev scores fed to LASSO
-  sel <- tryCatch(select_pcr_components(Xtr, ytr, rule = "cvdev", foldid = foldid), error = function(e) NULL)
-  if (is.null(sel) || sel$k < 2) {
+  # PLS + LASSO hybrid (using PCR_cvdev approximation)
+  sel <- select_pcr_components(Xtr, ytr, rule = "cvdev", foldid = foldid)
+  if (sel$k < 2) {
     out$PLS_LASSO <- out$MLE
   } else {
     Ztr <- sel$pr$x[, seq_len(sel$k), drop = FALSE]
-    cvZ <- tryCatch(cv.glmnet(Ztr, ytr, family = "binomial", alpha = 1,
-                              foldid = foldid, type.measure = "deviance"),
-                    error = function(e) NULL)
+    cvZ <- fit_glmnet_cv(Ztr, ytr, alpha = 1, foldid = foldid)
     if (is.null(cvZ)) {
       out$PLS_LASSO <- out$MLE
     } else {
-      Zva <- scale(Xva, center = sel$pr$center, scale = sel$pr$scale) %*% sel$pr$rotation
-      Zva <- Zva[, seq_len(sel$k), drop = FALSE]
-      php <- as.numeric(predict(cvZ, newx = Zva, type = "response", s = "lambda.min"))
+      # Apply same transformation to validation set
+      if (is.list(sel$pr) && is.matrix(sel$pr$x)) {
+        Zva <- Xva[, seq_len(sel$k), drop = FALSE]
+      } else {
+        Zva <- Xva %*% sel$pr$rotation
+        Zva <- Zva[, seq_len(sel$k), drop = FALSE]
+      }
+      php <- predict_glmnet_resp(cvZ, Zva)
       out$PLS_LASSO <- compute_metrics(php, yva, piv)
     }
   }
@@ -280,15 +470,15 @@ eval_methods_once <- function(Xtr, ytr, Xva, yva, piv, seed_fold) {
   bind_rows(out, .id = "method")
 }
 
-# ---------- Ranking (paper’s rounding rules) ---------------------------------
+# ---------- Ranking (paper's rounding rules) ---------------------------------
 rank_with_rounding <- function(df) {
   df %>%
     mutate(
-      r_auc   = rank(-round(auc,   3), ties.method = "min"),
-      r_brier = rank( round(brier, 3), ties.method = "min"),
-      r_cals  = rank( abs(round(cal_slope, 2) - 1), ties.method = "min"),
-      r_rmspe = rank( round(rMSPE, 3), ties.method = "min"),
-      r_mape  = rank( round(MAPE,  3), ties.method = "min")
+      r_auc   = rank(-round(auc,   3), ties.method = "min", na.last = "keep"),
+      r_brier = rank( round(brier, 3), ties.method = "min", na.last = "keep"),
+      r_cals  = rank( abs(round(cal_slope, 2) - 1), ties.method = "min", na.last = "keep"),
+      r_rmspe = rank( round(rMSPE, 3), ties.method = "min", na.last = "keep"),
+      r_mape  = rank( round(MAPE,  3), ties.method = "min", na.last = "keep")
     )
 }
 
@@ -312,17 +502,35 @@ run_scenarios_block <- function(grid, scn_indices, iters = 20,
   out <- vector("list", length(scn_indices))
   for (i in seq_along(scn_indices)) {
     s <- grid[scn_indices[i], ]
+    cat("Running scenario", s$scn_id, "- EPV:", s$EPV, "p:", s$p, 
+        "event_frac:", round(s$event_frac, 4), "\n")
+    
     res_iter <- vector("list", iters)
     for (it in seq_len(iters)) {
       seed <- base_seed + s$scn_id * 1000L + it
-      dat <- gen_dataset(
-        p = s$p, event_frac = s$event_frac, EPV = s$EPV,
-        noise_frac = s$noise_frac, sparse = s$sparse, seed = seed
-      )
-      met <- eval_methods_once(dat$Xtr, dat$ytr, dat$Xva, dat$yva, dat$piv,
-                               seed_fold = seed + 13L) %>%
-        mutate(iter = it)
-      res_iter[[it]] <- met
+      
+      tryCatch({
+        dat <- gen_dataset(
+          p = s$p, event_frac = s$event_frac, EPV = s$EPV,
+          noise_frac = s$noise_frac, sparse = s$sparse, seed = seed
+        )
+        met <- eval_methods_once(dat$Xtr, dat$ytr, dat$Xva, dat$yva, dat$piv,
+                                 seed_fold = seed + 13L) %>%
+          mutate(iter = it)
+        res_iter[[it]] <- met
+      }, error = function(e) {
+        warning(paste("Scenario", s$scn_id, "iteration", it, "failed:", e$message))
+        # Return dummy results with NAs
+        dummy_metrics <- tibble(auc = NA_real_, cal_slope = NA_real_, 
+                               cal_in_large = NA_real_, brier = NA_real_,
+                               rMSPE = NA_real_, MAPE = NA_real_)
+        method_names <- c("MLE", "Ridge", "LASSO", "ElasticNet", "RelaxedLASSO",
+                         "PCR_evgt1", "PCR_var90", "PCR_aic", "PCR_cvdev", 
+                         "PLS", "PLS_LASSO")
+        dummy_df <- bind_rows(lapply(method_names, function(m) dummy_metrics), .id = "method") %>%
+          mutate(method = method_names, iter = it)
+        res_iter[[it]] <- dummy_df
+      })
     }
     out[[i]] <- bind_rows(res_iter) %>%
       mutate(scn_id = s$scn_id,
