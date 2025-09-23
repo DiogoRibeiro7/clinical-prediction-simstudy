@@ -1,0 +1,243 @@
+name: 📚 Documentation Issue
+description: Report missing, unclear, or incorrect documentation
+title: "[DOCS] "
+labels: ["documentation", "needs-review"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve our documentation! Clear documentation is essential for reproducible research.
+        
+        **Before submitting:** Please check if a similar documentation issue already exists in the [issue tracker](../../issues).
+
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: Prerequisites
+      description: Please confirm you have completed these steps
+      options:
+        - label: I have searched existing issues to avoid duplicates
+          required: true
+        - label: I have checked the current documentation in README.md and code comments
+          required: true
+        - label: I have looked for existing documentation in the repository
+          required: true
+
+  - type: dropdown
+    id: doc_type
+    attributes:
+      label: Documentation Type
+      description: What type of documentation needs attention?
+      options:
+        - README.md content
+        - Function documentation (inline comments)
+        - Usage examples and tutorials
+        - Installation instructions
+        - Methodology explanation
+        - Performance optimization guide
+        - Troubleshooting guide
+        - Code comments and explanations
+        - API/function reference
+        - Contributing guidelines
+        - Other (please specify)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: issue_category
+    attributes:
+      label: Issue Category
+      description: What's the nature of the documentation problem?
+      options:
+        - Missing documentation
+        - Incorrect/outdated information
+        - Unclear explanations
+        - Missing examples
+        - Broken links or references
+        - Formatting/presentation issues
+        - Translation or language issues
+        - Accessibility issues
+        - Other (please specify)
+    validations:
+      required: true
+
+  - type: textarea
+    id: current_documentation
+    attributes:
+      label: Current Documentation
+      description: What does the current documentation say (if anything)?
+      placeholder: |
+        Quote or describe the current documentation:
+        - Copy relevant text from README, comments, or other docs
+        - Indicate if documentation is completely missing
+        - Provide file names and line numbers if applicable
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem_description
+    attributes:
+      label: Problem Description
+      description: What's wrong with the current documentation?
+      placeholder: |
+        Clearly describe the problem:
+        - What information is missing?
+        - What is incorrect or confusing?
+        - What assumptions are made that shouldn't be?
+        - What questions are left unanswered?
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggested_improvement
+    attributes:
+      label: Suggested Improvement
+      description: How should the documentation be improved?
+      placeholder: |
+        Provide specific suggestions:
+        - What information should be added?
+        - How should existing content be revised?
+        - What examples would be helpful?
+        - What structure or organization would work better?
+    validations:
+      required: true
+
+  - type: textarea
+    id: use_case
+    attributes:
+      label: Use Case/Context
+      description: In what situation did you encounter this documentation issue?
+      placeholder: |
+        Describe the context:
+        - What were you trying to accomplish?
+        - What step in the process caused confusion?
+        - What would have helped you succeed faster?
+        - How did you eventually figure it out (if you did)?
+
+  - type: dropdown
+    id: user_level
+    attributes:
+      label: User Experience Level
+      description: What's your experience level with this type of project?
+      options:
+        - Beginner (new to R or simulation studies)
+        - Intermediate (familiar with R, some simulation experience)
+        - Advanced (experienced with R and statistical simulations)
+        - Expert (contributor to similar projects)
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: documentation_sections
+    attributes:
+      label: Affected Documentation Sections
+      description: Select all documentation sections that need improvement
+      options:
+        - label: Project overview and objectives
+        - label: Installation and setup instructions
+        - label: Quick start guide
+        - label: Detailed usage examples
+        - label: Function reference and parameters
+        - label: Methodology and algorithm explanations
+        - label: Performance tuning and optimization
+        - label: Troubleshooting and error handling
+        - label: Output interpretation and analysis
+        - label: Contributing guidelines
+        - label: Citation and references
+
+  - type: textarea
+    id: proposed_content
+    attributes:
+      label: Proposed Content
+      description: If you have specific content suggestions, please provide them
+      render: markdown
+      placeholder: |
+        # Proposed documentation content (in Markdown):
+        
+        ## Section Title
+        
+        Your suggested content here...
+        
+        ```r
+        # Code examples if applicable
+        example_function(parameter = value)
+        ```
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority Level
+      description: How important is fixing this documentation?
+      options:
+        - Low (minor improvement, doesn't block usage)
+        - Medium (would significantly improve user experience)
+        - High (creates confusion or prevents successful usage)
+        - Critical (contains incorrect information that could lead to errors)
+    validations:
+      required: true
+
+  - type: textarea
+    id: related_issues
+    attributes:
+      label: Related Issues
+      description: Are there related issues, questions, or confusion points?
+      placeholder: |
+        Reference related items:
+        - Link to related GitHub issues
+        - Common questions you've seen
+        - Related documentation that works well
+        - Similar projects with good documentation examples
+
+  - type: checkboxes
+    id: documentation_format
+    attributes:
+      label: Preferred Documentation Format
+      description: What format would work best for this documentation?
+      options:
+        - label: README.md section
+        - label: Inline code comments
+        - label: Separate markdown file
+        - label: R package-style documentation
+        - label: Tutorial/vignette format
+        - label: FAQ section
+        - label: Troubleshooting guide
+        - label: Video tutorial (if applicable)
+
+  - type: textarea
+    id: examples_needed
+    attributes:
+      label: Examples Needed
+      description: What specific examples would make the documentation clearer?
+      placeholder: |
+        Describe helpful examples:
+        - Code examples for specific use cases
+        - Input/output examples
+        - Common workflow examples
+        - Error scenarios and solutions
+        - Performance comparison examples
+
+  - type: checkboxes
+    id: contribution_willingness
+    attributes:
+      label: Contribution
+      description: Would you be willing to help improve this documentation?
+      options:
+        - label: I can write or revise the documentation content
+        - label: I can provide examples and use cases
+        - label: I can review and test proposed documentation changes
+        - label: I can help with proofreading and editing
+        - label: I can provide feedback on draft documentation
+
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Additional Context
+      description: Any other information that would help improve the documentation
+      placeholder: |
+        Additional information:
+        - Screenshots of confusing interfaces
+        - Links to helpful documentation from other projects
+        - Specific terminology that should be defined
+        - Assumptions that need clarification
+        - External references that should be included
