@@ -1,0 +1,22 @@
+# config/simulation_config.yaml
+simulation:
+  default_iterations: 20
+  cv_folds: 10
+  max_pls_components: 30
+  validation_scale: 20
+  
+numerical:
+  calibration_bounds: [0.01, 10.0]
+  eigenvalue_threshold: 1e-8
+  convergence_tolerance: 1e-10
+  
+parallel:
+  default_workers: -1  # auto-detect
+  chunk_size: 50
+  memory_limit_gb: 8
+  
+output:
+  precision:
+    auc: 3
+    brier: 3
+    cal_slope: 2
