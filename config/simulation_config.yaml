@@ -1,22 +1,120 @@
-# config/simulation_config.yaml
+# =======================================================================
+# Simulation Configuration for Lohmann et al. (2023) Replication
+# 
+# Centralized configuration file for all simulation parameters
+# This replaces hard-coded values scattered throughout the codebase
+# =======================================================================
+
+# Core simulation parameters
 simulation:
   default_iterations: 20
   cv_folds: 10
   max_pls_components: 30
-  validation_scale: 20
+  validation_scale: 20  # Validation set size multiplier
+  base_seed: 20250923
   
+# Grid parameters (reproduces exact Lohmann et al. specification)
+grid:
+  EPV: [3, 5, 10, 15, 20, 50, 100]
+  event_fractions: [0.03125, 0.0625, 0.125, 0.25, 0.5]  # 1/32, 1/16, 1/8, 1/4, 1/2
+  predictors: [4, 8, 16, 32, 64]
+  noise_fractions: [0, 0.25, 0.5]
+  sparse_options: [false, true]
+  
+# Numerical stability parameters
 numerical:
   calibration_bounds: [0.01, 10.0]
-  eigenvalue_threshold: 1e-8
-  convergence_tolerance: 1e-10
+  eigenvalue_threshold: 1.0e-8
+  eigenvalue_correction_factor: 0.001
+  convergence_tolerance: 1.0e-10
+  probability_bounds: [1.0e-12, 0.999999999999]
   
+# Method-specific parameters
+methods:
+  glmnet:
+    nlambda: 100
+    standardize: false  # Data pre-standardized
+    alpha_grid: [0, 0.125, 0.25, 0.5, 0.75, 1.0]
+    
+  pcr:
+    rules: ["evgt1", "var90", "aic", "cvdev"]
+    min_components: 2  # Fallback to MLE if fewer
+    
+  pls:
+    sparse_stopping: true
+    max_components: 30
+    
+# Parallel processing
 parallel:
-  default_workers: -1  # auto-detect
+  default_workers: -1  # Auto-detect (n_cores - 1)
   chunk_size: 50
   memory_limit_gb: 8
+  enable_progress_bar: true
   
+# Output and precision settings
 output:
   precision:
     auc: 3
     brier: 3
     cal_slope: 2
+    rmspe: 3
+    mape: 3
+  
+  directories:
+    results: "results"
+    logs: "logs"
+    plots: "plots"
+    config: "config"
+    tests: "tests"
+    
+  file_formats:
+    chunk_pattern: "sim_chunk_%03d.rds"
+    summary_pattern: "sim_chunk_%03d_summary.csv"
+    log_pattern: "simulation_%Y%m%d_%H%M%S.log"
+    
+# Logging configuration
+logging:
+  level: "INFO"  # DEBUG, INFO, WARN, ERROR
+  console: true
+  file: true
+  max_file_size_mb: 100
+  rotate_logs: true
+  
+# Quality assurance
+quality:
+  min_convergence_rate: 0.95
+  max_missing_rate: 0.05
+  expected_auc_range: [0.5, 0.95]
+  expected_brier_range: [0.05, 0.5]
+  
+# Validation benchmarks (from original paper)
+benchmarks:
+  expected_top_methods: ["Ridge", "LASSO", "ElasticNet", "MLE", "RelaxedLASSO"]
+  penalization_vs_variance_decomposition:
+    expected_advantage: 0.15  # Expected rank difference
+    
+# Visualization settings
+visualization:
+  theme: "publication"
+  dpi: 300
+  width: 12
+  height: 8
+  colors:
+    MLE: "#E31A1C"
+    Ridge: "#1F78B4"
+    LASSO: "#33A02C"
+    ElasticNet: "#FF7F00"
+    RelaxedLASSO: "#6A3D9A"
+    PCR_evgt1: "#A6CEE3"
+    PCR_var90: "#B2DF8A"
+    PCR_aic: "#FDBF6F"
+    PCR_cvdev: "#CAB2D6"
+    PLS: "#FFFF99"
+    PLS_LASSO: "#B15928"
+    
+# Development and testing
+development:
+  enable_profiling: false
+  enable_unit_tests: true
+  test_scenarios: 10  # Number of scenarios for testing
+  quick_test_iterations: 2
