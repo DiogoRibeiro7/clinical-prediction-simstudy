@@ -1,0 +1,44 @@
+version: 2
+updates:
+  # R projects: Dependabot can't bump CRAN/R packages (DESCRIPTION/renv.lock).
+  # Use a scheduled workflow for that (see note below).
+  # This section intentionally omitted for "R deps".
+
+  # GitHub Actions (CI) used by your R project
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "diogoribeiro7"
+    labels:
+      - "dependencies"
+      - "github-actions"
+      - "r"
+
+  # Optional: Dockerfiles (if you build images for R, e.g., rocker/r-ver, rstudio)
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "diogoribeiro7"
+    labels:
+      - "dependencies"
+      - "docker"
+      - "r"
+
+  # Optional: Dev Containers (if you use .devcontainer for R dev)
+  - package-ecosystem: "devcontainers"
+    directory: "/.devcontainer"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "diogoribeiro7"
+    labels:
+      - "dependencies"
+      - "devcontainer"
+      - "r"
